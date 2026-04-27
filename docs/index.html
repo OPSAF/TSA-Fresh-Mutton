@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鲜羊肉价格分析报告</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; background-color: #f8f9fa; color: #333; }
+        .container { max-width: 1400px; margin: 20px auto; padding: 0 20px; }
+        h1 { color: #1f77b4; font-weight: bold; margin-bottom: 30px; }
+        .card { margin-bottom: 25px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border: none; border-radius: 8px; overflow: hidden; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+        .card-header { background: linear-gradient(135deg, #1f77b4 0%, #17a2b8 100%); color: white; font-weight: bold; padding: 15px 20px; border-bottom: none; }
+        .card-body { padding: 20px; background-color: white; }
+        .stats-table { font-size: 14px; width: 100%; }
+        .stats-table th { background-color: #f8f9fa; font-weight: bold; text-align: center; }
+        .stats-table td { text-align: center; }
+        .stats-table tr:hover { background-color: #f8f9fa; }
+        .chart-container { position: relative; height: 400px; margin: 20px 0; }
+        .price-tabs { margin-bottom: 25px; border-bottom: 2px solid #1f77b4; }
+        .price-tabs .nav-link { color: #666; font-weight: bold; padding: 12px 20px; border-radius: 0; border-bottom: 3px solid transparent; }
+        .price-tabs .nav-link.active { color: #1f77b4; border-bottom-color: #1f77b4; background-color: rgba(31, 119, 180, 0.05); }
+        .price-section { margin-top: 30px; }
+        .alert { margin: 15px 0; border-radius: 6px; }
+        .alert-info { background-color: #e3f2fd; border-color: #2196f3; color: #1565c0; }
+        @media (max-width: 768px) {
+            .container { margin: 10px; padding: 0 15px; }
+            .chart-container { height: 300px; }
+            .price-tabs .nav-link { padding: 10px 15px; font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-5">北京市鲜羊肉价格分析报告</h1>
+
+        <ul class="nav nav-tabs price-tabs" id="priceTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="wholesale-tab" data-bs-toggle="tab" data-bs-target="#wholesale" type="button">批发价格</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="trade-tab" data-bs-toggle="tab" data-bs-target="#trade" type="button">批农贸零售价格</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="supermarket-tab" data-bs-toggle="tab" data-bs-target="#supermarket" type="button">超市贸零售价格</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="priceTabsContent">
+            <div class="tab-pane fade show active" id="wholesale" role="tabpanel">
+                <div class="price-section" id="wholesale-content"></div>
+            </div>
+            <div class="tab-pane fade" id="trade" role="tabpanel">
+                <div class="price-section" id="trade-content"></div>
+            </div>
+            <div class="tab-pane fade" id="supermarket" role="tabpanel">
+                <div class="price-section" id="supermarket-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // 嵌入的JSON数据
+        const cleanedData = [
+            {"日期_str":"2018-01-01","批发价格":56.5935,"批农贸零售价格":31.8571,"超市贸零售价格":39.6687},
+            {"日期_str":"2018-02-01","批发价格":56.6646,"批农贸零售价格":32.5786,"超市贸零售价格":40.1761},
+            {"日期_str":"2018-03-01","批发价格":57.3955,"批农贸零售价格":32.8371,"超市贸零售价格":40.8194},
+            {"日期_str":"2018-04-01","批发价格":57.0967,"批农贸零售价格":32.6077,"超市贸零售价格":40.876},
+            {"日期_str":"2018-05-01","批发价格":57.391,"批农贸零售价格":32.4774,"超市贸零售价格":41.0623},
+            {"日期_str":"2018-06-01","批发价格":57.0083,"批农贸零售价格":32.416,"超市贸零售价格":40.781},
+            {"日期_str":"2018-07-01","批发价格":56.7994,"批农贸零售价格":32.4223,"超市贸零售价格":40.36},
+            {"日期_str":"2018-08-01","批发价格":57.1313,"批农贸零售价格":32.4252,"超市贸零售价格":40.0387},
+            {"日期_str":"2018-09-01","批发价格":58.6933,"批农贸零售价格":32.634,"超市贸零售价格":40.6877},
+            {"日期_str":"2018-10-01","批发价格":59.7132,"批农贸零售价格":33.0058,"超市贸零售价格":40.9232},
+            {"日期_str":"2018-11-01","批发价格":61.9683,"批农贸零售价格":34.0783,"超市贸零售价格":40.0733},
+            {"日期_str":"2018-12-01","批发价格":65.9977,"批农贸零售价格":35.8484,"超市贸零售价格":40.4868},
+            {"日期_str":"2019-01-01","批发价格":65.7568,"批农贸零售价格":37.3739,"超市贸零售价格":40.4145},
+            {"日期_str":"2019-02-01","批发价格":66.9532,"批农贸零售价格":37.525,"超市贸零售价格":40.8486},
+            {"日期_str":"2019-03-01","批发价格":64.9923,"批农贸零售价格":36.8858,"超市贸零售价格":41.4355},
+            {"日期_str":"2019-04-01","批发价格":63.137,"批农贸零售价格":36.6403,"超市贸零售价格":41.589},
+            {"日期_str":"2019-05-01","批发价格":62.7284,"批农贸零售价格":36.4639,"超市贸零售价格":42.1284},
+            {"日期_str":"2019-06-01","批发价格":63.9477,"批农贸零售价格":36.204,"超市贸零售价格":42.0453},
+            {"日期_str":"2019-07-01","批发价格":63.3474,"批农贸零售价格":36.3655,"超市贸零售价格":42.2881},
+            {"日期_str":"2019-08-01","批发价格":61.0355,"批农贸零售价格":36.7332,"超市贸零售价格":43.0342},
+            {"日期_str":"2019-09-01","批发价格":70.0357,"批农贸零售价格":38.5883,"超市贸零售价格":46.218},
+            {"日期_str":"2019-10-01","批发价格":70.0652,"批农贸零售价格":39.0106,"超市贸零售价格":47.0674},
+            {"日期_str":"2019-11-01","批发价格":70.6253,"批农贸零售价格":39.1713,"超市贸零售价格":48.757},
+            {"日期_str":"2019-12-01","批发价格":70.3848,"批农贸零售价格":39.1826,"超市贸零售价格":49.2235},
+            {"日期_str":"2020-01-01","批发价格":69.4445,"批农贸零售价格":39.5216,"超市贸零售价格":50.1984},
+            {"日期_str":"2020-02-01","批发价格":72.9038,"批农贸零售价格":39.8028,"超市贸零售价格":50.7383},
+            {"日期_str":"2020-03-01","批发价格":69.2881,"批农贸零售价格":39.84,"超市贸零售价格":51.331},
+            {"日期_str":"2020-04-01","批发价格":68.2377,"批农贸零售价格":39.6677,"超市贸零售价格":51.8253},
+            {"日期_str":"2020-05-01","批发价格":68.9677,"批农贸零售价格":39.2265,"超市贸零售价格":50.5781},
+            {"日期_str":"2020-06-01","批发价格":72.6287,"批农贸零售价格":39.4397,"超市贸零售价格":49.892},
+            {"日期_str":"2020-07-01","批发价格":75.129,"批农贸零售价格":39.871,"超市贸零售价格":49.2839},
+            {"日期_str":"2020-08-01","批发价格":58.039,"批农贸零售价格":39.9645,"超市贸零售价格":49.8787},
+            {"日期_str":"2020-09-01","批发价格":56.5507,"批农贸零售价格":39.7977,"超市贸零售价格":49.93},
+            {"日期_str":"2020-10-01","批发价格":57.489,"批农贸零售价格":39.4439,"超市贸零售价格":50.4374},
+            {"日期_str":"2020-11-01","批发价格":57.9883,"批农贸零售价格":39.382,"超市贸零售价格":49.3587},
+            {"日期_str":"2020-12-01","批发价格":64.0397,"批农贸零售价格":40.621,"超市贸零售价格":49.0697},
+            {"日期_str":"2021-01-01","批发价格":67.3903,"批农贸零售价格":43.2019,"超市贸零售价格":48.5594},
+            {"日期_str":"2021-02-01","批发价格":70.4791,"批农贸零售价格":44.2379,"超市贸零售价格":49.435},
+            {"日期_str":"2021-03-01","批发价格":72.2874,"批农贸零售价格":44.4839,"超市贸零售价格":50.3765},
+            {"日期_str":"2021-04-01","批发价格":73.1577,"批农贸零售价格":44.5567,"超市贸零售价格":50.718},
+            {"日期_str":"2021-05-01","批发价格":71.9477,"批农贸零售价格":44.4065,"超市贸零售价格":50.7158},
+            {"日期_str":"2021-06-01","批发价格":69.6813,"批农贸零售价格":43.7817,"超市贸零售价格":50.4503},
+            {"日期_str":"2021-07-01","批发价格":67.8813,"批农贸零售价格":42.4581,"超市贸零售价格":49.9219},
+            {"日期_str":"2021-08-01","批发价格":67.8042,"批农贸零售价格":41.2016,"超市贸零售价格":49.2458},
+            {"日期_str":"2021-09-01","批发价格":71.9787,"批农贸零售价格":41.0517,"超市贸零售价格":48.5223},
+            {"日期_str":"2021-10-01","批发价格":70.3535,"批农贸零售价格":40.8565,"超市贸零售价格":48.0313},
+            {"日期_str":"2021-11-01","批发价格":70.624,"批农贸零售价格":40.883,"超市贸零售价格":48.4927},
+            {"日期_str":"2021-12-01","批发价格":71.4071,"批农贸零售价格":41.1023,"超市贸零售价格":48.5923},
+            {"日期_str":"2022-01-01","批发价格":74.2752,"批农贸零售价格":41.2232,"超市贸零售价格":48.6181},
+            {"日期_str":"2022-02-01","批发价格":74.1175,"批农贸零售价格":41.2654,"超市贸零售价格":48.4239},
+            {"日期_str":"2022-03-01","批发价格":73.0174,"批农贸零售价格":41.0935,"超市贸零售价格":49.5235},
+            {"日期_str":"2022-04-01","批发价格":68.868,"批农贸零售价格":40.9887,"超市贸零售价格":49.2573},
+            {"日期_str":"2022-05-01","批发价格":64.6058,"批农贸零售价格":40.7735,"超市贸零售价格":48.0468},
+            {"日期_str":"2022-06-01","批发价格":64.6513,"批农贸零售价格":40.2093,"超市贸零售价格":48.556},
+            {"日期_str":"2022-07-01","批发价格":62.3429,"批农贸零售价格":39.9726,"超市贸零售价格":49.3168},
+            {"日期_str":"2022-08-01","批发价格":61.5603,"批农贸零售价格":39.9797,"超市贸零售价格":51.0971},
+            {"日期_str":"2022-09-01","批发价格":61.3683,"批农贸零售价格":39.7293,"超市贸零售价格":51.232},
+            {"日期_str":"2022-10-01","批发价格":60.7958,"批农贸零售价格":39.7281,"超市贸零售价格":50.9377},
+            {"日期_str":"2022-11-01","批发价格":62.557,"批农贸零售价格":39.819,"超市贸零售价格":50.3157},
+            {"日期_str":"2022-12-01","批发价格":65.8271,"批农贸零售价格":39.5448,"超市贸零售价格":50.0294},
+            {"日期_str":"2023-01-01","批发价格":66.3646,"批农贸零售价格":39.8819,"超市贸零售价格":49.0752},
+            {"日期_str":"2023-02-01","批发价格":69.0196,"批农贸零售价格":39.5964,"超市贸零售价格":49.0529},
+            {"日期_str":"2023-03-01","批发价格":69.6171,"批农贸零售价格":39.8952,"超市贸零售价格":49.2829},
+            {"日期_str":"2023-04-01","批发价格":68.733,"批农贸零售价格":39.8033,"超市贸零售价格":48.843},
+            {"日期_str":"2023-05-01","批发价格":67.7587,"批农贸零售价格":39.5942,"超市贸零售价格":48.45},
+            {"日期_str":"2023-06-01","批发价格":66.1377,"批农贸零售价格":39.1247,"超市贸零售价格":47.7973},
+            {"日期_str":"2023-07-01","批发价格":62.4813,"批农贸零售价格":38.6716,"超市贸零售价格":47.5477},
+            {"日期_str":"2023-08-01","批发价格":63.0016,"批农贸零售价格":37.89,"超市贸零售价格":47.1213},
+            {"日期_str":"2023-09-01","批发价格":62.3597,"批农贸零售价格":37.9107,"超市贸零售价格":46.065},
+            {"日期_str":"2023-10-01","批发价格":61.1261,"批农贸零售价格":37.8745,"超市贸零售价格":45.3777},
+            {"日期_str":"2023-11-01","批发价格":64.383,"批农贸零售价格":37.818,"超市贸零售价格":45.3613},
+            {"日期_str":"2023-12-01","批发价格":65.9026,"批农贸零售价格":38.0397,"超市贸零售价格":45.1113},
+            {"日期_str":"2024-01-01","批发价格":66.7619,"批农贸零售价格":38.1329,"超市贸零售价格":44.7474},
+            {"日期_str":"2024-02-01","批发价格":71.5041,"批农贸零售价格":38.911,"超市贸零售价格":43.6979},
+            {"日期_str":"2024-03-01","批发价格":65.5194,"批农贸零售价格":37.8694,"超市贸零售价格":43.7729},
+            {"日期_str":"2024-04-01","批发价格":62.803,"批农贸零售价格":37.5557,"超市贸零售价格":44.1177},
+            {"日期_str":"2024-05-01","批发价格":60.3281,"批农贸零售价格":37.1413,"超市贸零售价格":43.9029},
+            {"日期_str":"2024-06-01","批发价格":58.754,"批农贸零售价格":36.3553,"超市贸零售价格":43.985},
+            {"日期_str":"2024-07-01","批发价格":57.9787,"批农贸零售价格":36.0603,"超市贸零售价格":43.9403},
+            {"日期_str":"2024-08-01","批发价格":57.4077,"批农贸零售价格":35.719,"超市贸零售价格":43.3139},
+            {"日期_str":"2024-09-01","批发价格":59.3797,"批农贸零售价格":35.825,"超市贸零售价格":43.5047},
+            {"日期_str":"2024-10-01","批发价格":60.1548,"批农贸零售价格":35.8726,"超市贸零售价格":43.4265},
+            {"日期_str":"2024-11-01","批发价格":60.79,"批农贸零售价格":35.9007,"超市贸零售价格":43.3067},
+            {"日期_str":"2024-12-01","批发价格":59.7468,"批农贸零售价格":35.7426,"超市贸零售价格":42.1287},
+            {"日期_str":"2025-01-01","批发价格":55.5682,"批农贸零售价格":36.2879,"超市贸零售价格":41.8758},
+            {"日期_str":"2025-02-01","批发价格":55.5944,"批农贸零售价格":36.2067,"超市贸零售价格":41.933},
+            {"日期_str":"2025-03-01","批发价格":60.5658,"批农贸零售价格":35.9084,"超市贸零售价格":41.9303},
+            {"日期_str":"2025-04-01","批发价格":59.3813,"批农贸零售价格":35.7173,"超市贸零售价格":42.41},
+            {"日期_str":"2025-05-01","批发价格":59.0732,"批农贸零售价格":35.6574,"超市贸零售价格":43.2577},
+            {"日期_str":"2025-06-01","批发价格":59.5997,"批农贸零售价格":35.7903,"超市贸零售价格":43.2827},
+            {"日期_str":"2025-07-01","批发价格":61.9006,"批农贸零售价格":35.639,"超市贸零售价格":43.3106},
+            {"日期_str":"2025-08-01","批发价格":61.4806,"批农贸零售价格":35.6239,"超市贸零售价格":43.3597},
+            {"日期_str":"2025-09-01","批发价格":65.7587,"批农贸零售价格":35.8677,"超市贸零售价格":43.4117},
+            {"日期_str":"2025-10-01","批发价格":65.8177,"批农贸零售价格":36.181,"超市贸零售价格":43.5574},
+            {"日期_str":"2025-11-01","批发价格":69.533,"批农贸零售价格":36.4377,"超市贸零售价格":43.814},
+            {"日期_str":"2025-12-01","批发价格":66.0523,"批农贸零售价格":36.4068,"超市贸零售价格":43.8806},
+            {"日期_str":"2026-01-01","批发价格":68.439,"批农贸零售价格":36.6732,"超市贸零售价格":44.6726},
+            {"日期_str":"2026-02-01","批发价格":52.5457,"批农贸零售价格":38.0871,"超市贸零售价格":45.8757},
+            {"日期_str":"2026-03-01","批发价格":69.1065,"批农贸零售价格":37.7787,"超市贸零售价格":45.4065},
+            {"日期_str":"2026-04-01","批发价格":67.4862,"批农贸零售价格":37.0281,"超市贸零售价格":44.8129}
+        ];
+
+        const descriptiveStats = {
+            "批发价格": {
+                "最大值": [75.129],
+                "最小值": [52.5457],
+                "均值": [64.5106],
+                "中位数": [64.6286],
+                "标准差": [5.3773],
+                "偏度": [-0.0078],
+                "峰度": [1.9603]
+            },
+            "批农贸零售价格": {
+                "最大值": [44.5567],
+                "最小值": [31.8571],
+                "均值": [38.0694],
+                "中位数": [38.0634],
+                "标准差": [2.912],
+                "偏度": [-0.0726],
+                "峰度": [2.8412]
+            },
+            "超市贸零售价格": {
+                "最大值": [51.8253],
+                "最小值": [39.6687],
+                "均值": [45.9166],
+                "中位数": [45.6411],
+                "标准差": [3.647],
+                "偏度": [-0.0992],
+                "峰度": [1.5614]
+            }
+        };
+
+        const priceTypes = ['wholesale', 'trade', 'supermarket'];
+        const priceNames = {
+            wholesale: '批发价格',
+            trade: '批农贸零售价格',
+            supermarket: '超市贸零售价格'
+        };
+        const jsonKeys = {
+            wholesale: '批发价格',
+            trade: '批农贸零售价格',
+            supermarket: '超市贸零售价格'
+        };
+
+        function createStatsTable(stats, containerId) {
+            const container = document.getElementById(containerId);
+            if (!stats) return;
+
+            let html = `
+                <div class="card">
+                    <div class="card-header">描述性统计分析</div>
+                    <div class="card-body">
+                        <table class="table table-bordered stats-table">
+                            <thead><tr><th>统计指标</th><th>数值</th></tr></thead>
+                            <tbody>`;
+            for (const [key, value] of Object.entries(stats)) {
+                html += `<tr><td>${key}</td><td>${typeof value === 'number' ? value.toFixed(2) : value[0].toFixed(4)}</td></tr>`;
+            }
+            html += `</tbody></table></div></div>`;
+            container.innerHTML = html;
+        }
+
+        function createTimeSeriesChart(data, containerId, priceKey) {
+            const container = document.getElementById(containerId);
+            const chartId = 'chart_' + containerId;
+
+            let html = `<div class="card">
+                <div class="card-header">${priceNames[priceKey]}时序变化</div>
+                <div class="card-body">
+                    <div class="chart-container"><canvas id="${chartId}"></canvas></div>
+                    <p class="text-muted text-center">数据来源: 鲜羊肉价格数据</p>
+                </div>
+            </div>`;
+            container.innerHTML = html;
+
+            // 根据价格类型获取对应的数据
+            let priceField;
+            if (priceKey === 'wholesale') {
+                priceField = '批发价格';
+            } else if (priceKey === 'trade') {
+                priceField = '批农贸零售价格';
+            } else {
+                priceField = '超市贸零售价格';
+            }
+
+            const prices = data.map(item => item[priceField]);
+            const dates = data.map(item => item.日期_str || item.日期);
+
+            // 确保Canvas元素存在
+            const canvas = document.getElementById(chartId);
+            if (!canvas) {
+                console.error('Canvas元素不存在:', chartId);
+                return;
+            }
+
+            // 确保Chart.js加载
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js未加载');
+                return;
+            }
+
+            try {
+                new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [{
+                            label: `${priceNames[priceKey]} (元/公斤)`,
+                            data: prices,
+                            borderColor: '#1f77b4',
+                            backgroundColor: 'rgba(31, 119, 180, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: { display: true, text: `${priceNames[priceKey]}时序变化`, font: { size: 16, weight: 'bold' } }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: '时间' } },
+                            y: { title: { display: true, text: '价格 (元/公斤)' } }
+                        }
+                    }
+                });
+                console.log('图表创建成功:', priceKey);
+            } catch (error) {
+                console.error('创建图表失败:', error);
+            }
+        }
+
+        function createModelInfo(containerId) {
+            const container = document.getElementById(containerId);
+            let html = `
+                <div class="card">
+                    <div class="card-header">SARIMA模型构建与最优定阶</div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <p>模型信息将在这里显示</p>
+                        </div>
+                    </div>
+                </div>`;
+            container.innerHTML = html;
+        }
+
+        function createEvalTable(containerId) {
+            const container = document.getElementById(containerId);
+            let html = `
+                <div class="card">
+                    <div class="card-header">模型效果评价指标对比</div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <p>模型评估结果将在这里显示</p>
+                        </div>
+                    </div>
+                </div>`;
+            container.innerHTML = html;
+        }
+
+        function createForecastTable(containerId) {
+            const container = document.getElementById(containerId);
+            let html = `
+                <div class="card">
+                    <div class="card-header">未来6个月价格预测表</div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <p>预测结果将在这里显示</p>
+                        </div>
+                    </div>
+                </div>`;
+            container.innerHTML = html;
+        }
+
+        function init() {
+            console.log('开始初始化...');
+            
+            priceTypes.forEach(priceType => {
+                console.log('处理价格类型:', priceType);
+                const key = jsonKeys[priceType];
+                const contentId = priceType + '-content';
+                
+                console.log('创建统计表格...');
+                createStatsTable(descriptiveStats[key], contentId);
+                
+                console.log('创建时序图表...');
+                createTimeSeriesChart(cleanedData, contentId, priceType);
+                
+                console.log('创建模型信息...');
+                createModelInfo(contentId);
+                
+                console.log('创建评估表格...');
+                createEvalTable(contentId);
+                
+                console.log('创建预测表格...');
+                createForecastTable(contentId);
+            });
+            
+            console.log('初始化完成');
+        }
+
+        // 页面加载完成后执行
+        window.onload = init;
+    </script>
+</body>
+</html>
