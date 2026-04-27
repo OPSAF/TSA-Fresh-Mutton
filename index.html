@@ -151,7 +151,7 @@
                 html += `<tr><td>${key}</td><td>${typeof value === 'number' ? value.toFixed(2) : value[0].toFixed(4)}</td></tr>`;
             }
             html += `</tbody></table></div></div>`;
-            container.innerHTML = html;
+            container.innerHTML += html;
         }
 
         function createTimeSeriesChart(data, containerId, priceKey) {
@@ -165,7 +165,7 @@
                     <p class="text-muted text-center">数据来源: 鲜羊肉价格数据</p>
                 </div>
             </div>`;
-            container.innerHTML = html;
+            container.innerHTML += html;
 
             let priceField = '批发价格';
             if (priceKey === 'trade') priceField = '批农贸零售价格';
@@ -228,7 +228,7 @@
                     <div class="chart-container"><canvas id="${chartId}"></canvas></div>
                 </div>
             </div>`;
-            container.innerHTML = html;
+            container.innerHTML += html;
 
             const decompData = data[priceKey];
             if (!decompData) {
@@ -294,7 +294,7 @@
                 html += `<tr><td>${seqType}</td><td>${values['p值'].toFixed(4)}</td><td>${values['统计量'].toFixed(4)}</td><td>${values['结论']}</td></tr>`;
             }
             html += `</tbody></table></div></div>`;
-            container.innerHTML = html;
+            container.innerHTML += html;
         }
 
         function createLBTable(lbData, key, containerId) {
@@ -311,7 +311,7 @@
                             <tbody>
                             <tr><td>Ljung-Box检验</td><td>${data['p值'].toFixed(4)}</td><td>${data['统计量'].toFixed(4)}</td><td>${data['结论']}</td></tr>
                             </tbody></table></div></div>`;
-            container.innerHTML = html;
+            container.innerHTML += html;
         }
 
         function createModelInfo(bestModelInfo, key, containerId) {
@@ -326,7 +326,7 @@
                             </div>
                         </div>
                     </div>`;
-                container.innerHTML = html;
+                container.innerHTML += html;
                 return;
             }
 
@@ -350,7 +350,7 @@
                 });
             }
             html += `</tbody></table></div></div>`;
-            container.innerHTML = html;
+            container.innerHTML += html;
         }
 
         function createEvalTable(evalData, key, containerId) {
@@ -365,7 +365,7 @@
                             </div>
                         </div>
                     </div>`;
-                container.innerHTML = html;
+                container.innerHTML += html;
                 return;
             }
 
@@ -381,7 +381,7 @@
                 html += `<tr><td>${modelName}</td><td>${modelData['MAE'].toFixed(4)}</td><td>${modelData['RMSE'].toFixed(4)}</td><td>${modelData['MAPE'].toFixed(2)}</td><td>${modelData['MASE'].toFixed(4)}</td></tr>`;
             }
             html += `</tbody></table></div></div>`;
-            container.innerHTML = html;
+            container.innerHTML += html;
         }
 
         function createForecastTable(forecastData, key, containerId) {
@@ -396,7 +396,7 @@
                             </div>
                         </div>
                     </div>`;
-                container.innerHTML = html;
+                container.innerHTML += html;
                 return;
             }
 
@@ -418,7 +418,7 @@
                 });
             }
             html += `</tbody></table></div></div>`;
-            container.innerHTML = html;
+            container.innerHTML += html;
         }
 
         function createForecastChart(forecastData, key, containerId, priceType) {
@@ -436,7 +436,7 @@
                     <div class="chart-container"><canvas id="${chartId}"></canvas></div>
                 </div>
             </div>`;
-            container.innerHTML = html;
+            container.innerHTML += html;
 
             if (data['预测表']) {
                 const months = data['预测表'].map(row => Array.isArray(row['月份']) ? row['月份'][0] : row['月份']);
@@ -525,6 +525,9 @@
                 console.log('处理价格类型:', priceType);
                 const key = jsonKeys[priceType];
                 const contentId = priceType + '-content';
+                
+                // 清空容器内容
+                document.getElementById(contentId).innerHTML = '';
                 
                 console.log('创建统计表格...');
                 createStatsTable(statsData[key], contentId);
