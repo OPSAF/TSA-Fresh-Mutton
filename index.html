@@ -410,7 +410,11 @@
                             <tbody>`;
             if (data['预测表']) {
                 data['预测表'].forEach(row => {
-                    html += `<tr><td>${row['月份']}</td><td>${row['预测值']}</td><td>${row['下界95']}</td><td>${row['上界95']}</td></tr>`;
+                    const month = Array.isArray(row['月份']) ? row['月份'][0] : row['月份'];
+                    const value = Array.isArray(row['预测值']) ? row['预测值'][0] : row['预测值'];
+                    const lower = Array.isArray(row['下界95']) ? row['下界95'][0] : row['下界95'];
+                    const upper = Array.isArray(row['上界95']) ? row['上界95'][0] : row['上界95'];
+                    html += `<tr><td>${month}</td><td>${value}</td><td>${lower}</td><td>${upper}</td></tr>`;
                 });
             }
             html += `</tbody></table></div></div>`;
@@ -435,10 +439,10 @@
             container.innerHTML = html;
 
             if (data['预测表']) {
-                const months = data['预测表'].map(row => row['月份']);
-                const predictions = data['预测表'].map(row => row['预测值']);
-                const lowerBounds = data['预测表'].map(row => row['下界95']);
-                const upperBounds = data['预测表'].map(row => row['上界95']);
+                const months = data['预测表'].map(row => Array.isArray(row['月份']) ? row['月份'][0] : row['月份']);
+                const predictions = data['预测表'].map(row => Array.isArray(row['预测值']) ? row['预测值'][0] : row['预测值']);
+                const lowerBounds = data['预测表'].map(row => Array.isArray(row['下界95']) ? row['下界95'][0] : row['下界95']);
+                const upperBounds = data['预测表'].map(row => Array.isArray(row['上界95']) ? row['上界95'][0] : row['上界95']);
 
                 const canvas = document.getElementById(chartId);
                 if (!canvas) {
