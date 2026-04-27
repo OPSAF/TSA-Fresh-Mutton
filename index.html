@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鲜羊肉价格分析报告</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; background-color: #f8f9fa; color: #333; }
+        .container { max-width: 1400px; margin: 20px auto; padding: 0 20px; }
+        h1 { color: #1f77b4; font-weight: bold; margin-bottom: 30px; }
+        .card { margin-bottom: 25px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border: none; border-radius: 8px; overflow: hidden; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+        .card-header { background: linear-gradient(135deg, #1f77b4 0%, #17a2b8 100%); color: white; font-weight: bold; padding: 15px 20px; border-bottom: none; }
+        .card-body { padding: 20px; background-color: white; }
+        .stats-table { font-size: 14px; width: 100%; }
+        .stats-table th { background-color: #f8f9fa; font-weight: bold; text-align: center; }
+        .stats-table td { text-align: center; }
+        .stats-table tr:hover { background-color: #f8f9fa; }
+        .chart-container { position: relative; height: 400px; margin: 20px 0; }
+        .price-tabs { margin-bottom: 25px; border-bottom: 2px solid #1f77b4; }
+        .price-tabs .nav-link { color: #666; font-weight: bold; padding: 12px 20px; border-radius: 0; border-bottom: 3px solid transparent; }
+        .price-tabs .nav-link.active { color: #1f77b4; border-bottom-color: #1f77b4; background-color: rgba(31, 119, 180, 0.05); }
+        .price-section { margin-top: 30px; }
+        .alert { margin: 15px 0; border-radius: 6px; }
+        .alert-info { background-color: #e3f2fd; border-color: #2196f3; color: #1565c0; }
+        @media (max-width: 768px) {
+            .container { margin: 10px; padding: 0 15px; }
+            .chart-container { height: 300px; }
+            .price-tabs .nav-link { padding: 10px 15px; font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-5">北京市鲜羊肉价格分析报告</h1>
+
+        <ul class="nav nav-tabs price-tabs" id="priceTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="wholesale-tab" data-bs-toggle="tab" data-bs-target="#wholesale" type="button">批发价格</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="trade-tab" data-bs-toggle="tab" data-bs-target="#trade" type="button">批农贸零售价格</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="supermarket-tab" data-bs-toggle="tab" data-bs-target="#supermarket" type="button">超市贸零售价格</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="priceTabsContent">
+            <div class="tab-pane fade show active" id="wholesale" role="tabpanel">
+                <div class="price-section" id="wholesale-content"></div>
+            </div>
+            <div class="tab-pane fade" id="trade" role="tabpanel">
+                <div class="price-section" id="trade-content"></div>
+            </div>
+            <div class="tab-pane fade" id="supermarket" role="tabpanel">
+                <div class="price-section" id="supermarket-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const priceTypes = ['wholesale', 'trade', 'supermarket'];
+        const priceNames = {
+            wholesale: '批发价格',
+            trade: '批农贸零售价格',
+            supermarket: '超市贸零售价格'
+        };
+        const jsonKeys = {
+            wholesale: '批发价格',
+            trade: '批农贸零售价格',
+            supermarket: '超市贸零售价格'
+        };
+
+        async function loadAllData() {
+            try {
+                const response = await fetch('json_output/cleaned_data.json');
+                const cleanedData = await response.json();
+
+                const statsResp = await fetch('json_output/descriptive_stats.json');
+                const statsData = await statsResp.json();
+
+                const decompWholesaleResp = await fetch('json_output/decomposition_wholesale.json');
+                const decompWholesaleData = await decompWholesaleResp.json();
+
+                const decompTradeResp = await fetch('json_output/decomposition_trade.json');
+                const decompTradeData = await decompTradeResp.json();
+
+                const decompSupermarketResp = await fetch('json_output/decomposition_supermarket.json');
+                const decompSupermarketData = await decompSupermarketResp.json();
+
+                const adfResp = await fetch('json_output/adf_test_results.json');
+                const adfData = await adfResp.json();
+
+                const lbResp = await fetch('json_output/lb_test_results.json');
+                const lbData = await lbResp.json();
+
+                const bestModelResp = await fetch('json_output/best_model_info.json');
+                const bestModelInfo = await bestModelResp.json();
+
+                let evaluationResults = null;
+                try {
+                    const evalResp = await fetch('json_output/evaluation_results.json');
+                    if (evalResp.ok) {
+                        evaluationResults = await evalResp.json();
+                    }
+                } catch (e) {
+                    console.warn('评估结果文件不存在');
+                }
+
+                let forecastResults = null;
+                try {
+                    const forecastResp = await fetch('json_output/forecast_results.json');
+                    if (forecastResp.ok) {
+                        forecastResults = await forecastResp.json();
+                    }
+                } catch (e) {
+                    console.warn('预测结果文件不存在');
+                }
+
+                return {
+                    cleanedData, statsData, 
+                    decompData: {
+                        wholesale: decompWholesaleData,
+                        trade: decompTradeData,
+                        supermarket: decompSupermarketData
+                    }, 
+                    adfData, lbData, bestModelInfo, evaluationResults, forecastResults
+                };
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                return null;
+            }
+        }
+
+        function createStatsTable(stats, containerId) {
+            const container = document.getElementById(containerId);
+            if (!stats) return;
+
+            let html = `
+                <div class="card">
+                    <div class="card-header">描述性统计分析</div>
+                    <div class="card-body">
+                        <table class="table table-bordered stats-table">
+                            <thead><tr><th>统计指标</th><th>数值</th></tr></thead>
+                            <tbody>`;
+            for (const [key, value] of Object.entries(stats)) {
+                html += `<tr><td>${key}</td><td>${typeof value === 'number' ? value.toFixed(2) : value[0].toFixed(4)}</td></tr>`;
+            }
+            html += `</tbody></table></div></div>`;
+            container.innerHTML = html;
+        }
+
+        function createTimeSeriesChart(data, containerId, priceKey) {
+            const container = document.getElementById(containerId);
+            const chartId = 'chart_' + containerId;
+
+            let html = `<div class="card">
+                <div class="card-header">${priceNames[priceKey]}时序变化</div>
+                <div class="card-body">
+                    <div class="chart-container"><canvas id="${chartId}"></canvas></div>
+                    <p class="text-muted text-center">数据来源: 鲜羊肉价格数据</p>
+                </div>
+            </div>`;
+            container.innerHTML = html;
+
+            let priceField = '批发价格';
+            if (priceKey === 'trade') priceField = '批农贸零售价格';
+            if (priceKey === 'supermarket') priceField = '超市贸零售价格';
+
+            const prices = data.map(item => item[priceField]);
+            const dates = data.map(item => item.日期_str || item.日期);
+
+            const canvas = document.getElementById(chartId);
+            if (!canvas) {
+                console.error('Canvas元素不存在:', chartId);
+                return;
+            }
+
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js未加载');
+                return;
+            }
+
+            try {
+                new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [{
+                            label: `${priceNames[priceKey]} (元/公斤)`,
+                            data: prices,
+                            borderColor: '#1f77b4',
+                            backgroundColor: 'rgba(31, 119, 180, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: { display: true, text: `${priceNames[priceKey]}时序变化`, font: { size: 16, weight: 'bold' } }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: '时间' } },
+                            y: { title: { display: true, text: '价格 (元/公斤)' } }
+                        }
+                    }
+                });
+                console.log('图表创建成功:', priceKey);
+            } catch (error) {
+                console.error('创建图表失败:', error);
+            }
+        }
+
+        function createDecompositionChart(data, containerId, priceKey) {
+            const container = document.getElementById(containerId);
+            const chartId = 'decomp_' + containerId;
+
+            let html = `<div class="card">
+                <div class="card-header">${priceNames[priceKey]}STL分解</div>
+                <div class="card-body">
+                    <div class="chart-container"><canvas id="${chartId}"></canvas></div>
+                </div>
+            </div>`;
+            container.innerHTML = html;
+
+            const decompData = data[priceKey];
+            if (!decompData) {
+                console.warn(`分解数据不存在 for ${priceKey}`);
+                return;
+            }
+
+            const canvas = document.getElementById(chartId);
+            if (!canvas) {
+                console.error('Canvas元素不存在:', chartId);
+                return;
+            }
+
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js未加载');
+                return;
+            }
+
+            try {
+                new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: decompData.map(item => item.日期 || item.日期_str),
+                        datasets: [
+                            { label: '原始值', data: decompData.map(item => item.原始值), borderColor: '#1f77b4', borderWidth: 1, fill: false },
+                            { label: '趋势项', data: decompData.map(item => item.趋势项), borderColor: '#ff7f0e', borderWidth: 1, fill: false },
+                            { label: '季节项', data: decompData.map(item => item.季节项), borderColor: '#2ca02c', borderWidth: 1, fill: false },
+                            { label: '残差项', data: decompData.map(item => item.残差项), borderColor: '#d62728', borderWidth: 1, fill: false }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: { display: true, text: `${priceNames[priceKey]}STL分解`, font: { size: 16, weight: 'bold' } },
+                            legend: { display: true, position: 'top' }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: '时间' } },
+                            y: { title: { display: true, text: '价格 (元/公斤)' } }
+                        }
+                    }
+                });
+                console.log('分解图表创建成功:', priceKey);
+            } catch (error) {
+                console.error('创建分解图表失败:', error);
+            }
+        }
+
+        function createADFTable(adfData, key, containerId) {
+            const container = document.getElementById(containerId);
+            if (!adfData || !adfData[key]) return;
+
+            const data = adfData[key];
+            let html = `
+                <div class="card">
+                    <div class="card-header">ADF单位根检验结果</div>
+                    <div class="card-body">
+                        <table class="table table-bordered stats-table">
+                            <thead><tr><th>序列类型</th><th>p值</th><th>统计量</th><th>结论</th></tr></thead>
+                            <tbody>`;
+            for (const [seqType, values] of Object.entries(data)) {
+                html += `<tr><td>${seqType}</td><td>${values['p值'].toFixed(4)}</td><td>${values['统计量'].toFixed(4)}</td><td>${values['结论']}</td></tr>`;
+            }
+            html += `</tbody></table></div></div>`;
+            container.innerHTML = html;
+        }
+
+        function createLBTable(lbData, key, containerId) {
+            const container = document.getElementById(containerId);
+            if (!lbData || !lbData[key]) return;
+
+            const data = lbData[key];
+            let html = `
+                <div class="card">
+                    <div class="card-header">Ljung-Box白噪声检验结果</div>
+                    <div class="card-body">
+                        <table class="table table-bordered stats-table">
+                            <thead><tr><th>检验类型</th><th>p值</th><th>统计量</th><th>结论</th></tr></thead>
+                            <tbody>
+                            <tr><td>Ljung-Box检验</td><td>${data['p值'].toFixed(4)}</td><td>${data['统计量'].toFixed(4)}</td><td>${data['结论']}</td></tr>
+                            </tbody></table></div></div>`;
+            container.innerHTML = html;
+        }
+
+        function createModelInfo(bestModelInfo, key, containerId) {
+            const container = document.getElementById(containerId);
+            if (!bestModelInfo || !bestModelInfo[key]) {
+                let html = `
+                    <div class="card">
+                        <div class="card-header">SARIMA模型构建与最优定阶</div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                <p>模型信息将在这里显示</p>
+                            </div>
+                        </div>
+                    </div>`;
+                container.innerHTML = html;
+                return;
+            }
+
+            const data = bestModelInfo[key];
+            let html = `
+                <div class="card">
+                    <div class="card-header">SARIMA模型构建与最优定阶</div>
+                    <div class="card-body">
+                        <div class="alert alert-success">
+                            <p><strong>最优模型阶数:</strong> ${data['模型阶数']}</p>
+                            <p><strong>AIC值:</strong> ${data['AIC'].toFixed(2)}</p>
+                            <p><strong>BIC值:</strong> ${data['BIC'].toFixed(2)}</p>
+                        </div>
+                        <h5>模型参数估计结果</h5>
+                        <table class="table table-bordered stats-table">
+                            <thead><tr><th>参数</th><th>估计值</th><th>标准误</th><th>z值</th><th>p值</th><th>显著性</th></tr></thead>
+                            <tbody>`;
+            if (data['参数估计']) {
+                data['参数估计'].forEach(param => {
+                    html += `<tr><td>${param['参数']}</td><td>${param['估计值'].toFixed(4)}</td><td>${param['标准误'].toFixed(4)}</td><td>${param['z值'].toFixed(4)}</td><td>${param['p值'].toFixed(4)}</td><td>${param['显著性']}</td></tr>`;
+                });
+            }
+            html += `</tbody></table></div></div>`;
+            container.innerHTML = html;
+        }
+
+        function createEvalTable(evalData, key, containerId) {
+            const container = document.getElementById(containerId);
+            if (!evalData || !evalData[key]) {
+                let html = `
+                    <div class="card">
+                        <div class="card-header">模型效果评价指标对比</div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                <p>模型评估结果将在这里显示</p>
+                            </div>
+                        </div>
+                    </div>`;
+                container.innerHTML = html;
+                return;
+            }
+
+            const data = evalData[key];
+            let html = `
+                <div class="card">
+                    <div class="card-header">模型效果评价指标对比</div>
+                    <div class="card-body">
+                        <table class="table table-bordered stats-table">
+                            <thead><tr><th>模型</th><th>MAE</th><th>RMSE</th><th>MAPE(%)</th><th>MASE</th></tr></thead>
+                            <tbody>`;
+            for (const [modelName, modelData] of Object.entries(data)) {
+                html += `<tr><td>${modelName}</td><td>${modelData['MAE'].toFixed(4)}</td><td>${modelData['RMSE'].toFixed(4)}</td><td>${modelData['MAPE'].toFixed(2)}</td><td>${modelData['MASE'].toFixed(4)}</td></tr>`;
+            }
+            html += `</tbody></table></div></div>`;
+            container.innerHTML = html;
+        }
+
+        function createForecastTable(forecastData, key, containerId) {
+            const container = document.getElementById(containerId);
+            if (!forecastData || !forecastData[key]) {
+                let html = `
+                    <div class="card">
+                        <div class="card-header">未来6个月价格预测表</div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                <p>预测结果将在这里显示</p>
+                            </div>
+                        </div>
+                    </div>`;
+                container.innerHTML = html;
+                return;
+            }
+
+            const data = forecastData[key];
+            let html = `
+                <div class="card">
+                    <div class="card-header">未来6个月价格预测表</div>
+                    <div class="card-body">
+                        <table class="table table-bordered stats-table">
+                            <thead><tr><th>月份</th><th>预测值 (元/公斤)</th><th>下界 (95%)</th><th>上界 (95%)</th></tr></thead>
+                            <tbody>`;
+            if (data['预测表']) {
+                data['预测表'].forEach(row => {
+                    html += `<tr><td>${row['月份']}</td><td>${row['预测值']}</td><td>${row['下界95']}</td><td>${row['上界95']}</td></tr>`;
+                });
+            }
+            html += `</tbody></table></div></div>`;
+            container.innerHTML = html;
+        }
+
+        function createForecastChart(forecastData, key, containerId, priceType) {
+            const container = document.getElementById(containerId);
+            if (!forecastData || !forecastData[key]) {
+                return;
+            }
+
+            const data = forecastData[key];
+            const chartId = 'forecast_' + containerId;
+
+            let html = `<div class="card">
+                <div class="card-header">${priceNames[priceType]}未来6个月价格预测趋势</div>
+                <div class="card-body">
+                    <div class="chart-container"><canvas id="${chartId}"></canvas></div>
+                </div>
+            </div>`;
+            container.innerHTML = html;
+
+            if (data['预测表']) {
+                const months = data['预测表'].map(row => row['月份']);
+                const predictions = data['预测表'].map(row => row['预测值']);
+                const lowerBounds = data['预测表'].map(row => row['下界95']);
+                const upperBounds = data['预测表'].map(row => row['上界95']);
+
+                const canvas = document.getElementById(chartId);
+                if (!canvas) {
+                    console.error('Canvas元素不存在:', chartId);
+                    return;
+                }
+
+                if (typeof Chart === 'undefined') {
+                    console.error('Chart.js未加载');
+                    return;
+                }
+
+                try {
+                    new Chart(canvas, {
+                        type: 'line',
+                        data: {
+                            labels: months,
+                            datasets: [
+                                {
+                                    label: '预测值',
+                                    data: predictions,
+                                    borderColor: '#1f77b4',
+                                    backgroundColor: 'rgba(31, 119, 180, 0.1)',
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.4
+                                },
+                                {
+                                    label: '95% 置信区间 (上界)',
+                                    data: upperBounds,
+                                    borderColor: 'rgba(75, 192, 192, 0.5)',
+                                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                                    borderWidth: 1,
+                                    fill: '-1',
+                                    tension: 0.4
+                                },
+                                {
+                                    label: '95% 置信区间 (下界)',
+                                    data: lowerBounds,
+                                    borderColor: 'rgba(75, 192, 192, 0.5)',
+                                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                                    borderWidth: 1,
+                                    fill: false,
+                                    tension: 0.4
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                title: { display: true, text: `${priceNames[priceType]}未来6个月价格预测趋势`, font: { size: 16, weight: 'bold' } },
+                                legend: { display: true, position: 'top' }
+                            },
+                            scales: {
+                                x: { title: { display: true, text: '月份' } },
+                                y: { title: { display: true, text: '价格 (元/公斤)' } }
+                            }
+                        }
+                    });
+                    console.log('预测图表创建成功:', priceType);
+                } catch (error) {
+                    console.error('创建预测图表失败:', error);
+                }
+            }
+        }
+
+        async function init() {
+            console.log('开始初始化...');
+            
+            const allData = await loadAllData();
+            if (!allData) {
+                document.body.innerHTML = '<div class="container mt-5"><div class="alert alert-danger">数据加载失败，请确保所有JSON文件存在且格式正确</div></div>';
+                return;
+            }
+
+            const { cleanedData, statsData, decompData, adfData, lbData, bestModelInfo, evaluationResults, forecastResults } = allData;
+            
+            priceTypes.forEach(priceType => {
+                console.log('处理价格类型:', priceType);
+                const key = jsonKeys[priceType];
+                const contentId = priceType + '-content';
+                
+                console.log('创建统计表格...');
+                createStatsTable(statsData[key], contentId);
+                
+                console.log('创建时序图表...');
+                createTimeSeriesChart(cleanedData, contentId, priceType);
+                
+                console.log('创建分解图表...');
+                createDecompositionChart(decompData, contentId, priceType);
+                
+                console.log('创建ADF检验表格...');
+                createADFTable(adfData, key, contentId);
+                
+                console.log('创建LB检验表格...');
+                createLBTable(lbData, key, contentId);
+                
+                console.log('创建模型信息...');
+                createModelInfo(bestModelInfo, key, contentId);
+                
+                console.log('创建评估表格...');
+                createEvalTable(evaluationResults, key, contentId);
+                
+                console.log('创建预测表格...');
+                createForecastTable(forecastResults, key, contentId);
+                
+                console.log('创建预测图表...');
+                createForecastChart(forecastResults, key, contentId, priceType);
+            });
+            
+            console.log('初始化完成');
+        }
+
+        // 页面加载完成后执行
+        window.onload = init;
+    </script>
+</body>
+</html>
